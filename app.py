@@ -63,7 +63,7 @@ for message in st.session_state.messages:
 # User input
 prompt = st.chat_input("Ask something about the video:")
 
-if prompt := textinput and "query_engine" in st.session_state:
+if prompt := prompt and "query_engine" in st.session_state:
     # Display user message in chat message container
     st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
     # Add user message to chat history
