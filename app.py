@@ -28,14 +28,19 @@ set_global_service_context(service_context)
 
 # Transcribe function
 def transcribe_video(youtube_url):
-    client = Client("https://sanchit-gandhi-whisper-jax.hf.space/")
-    result = client.predict(youtube_url, "transcribe", True, fn_index=7)
-    with open(f'{PATH}/docs.txt','w') as f:
-        f.write(result[1])
-
-    documents = SimpleDirectoryReader(PATH).load_data()
-    index = VectorStoreIndex.from_documents(documents)
-    return index.as_query_engine()
+    with st.status("Starting client"):
+        client = Client("https://sanchit-gandhi-whisper-jax.hf.space/")
+        st.write("Requesting client")
+    with st.status("Requesting Whisper"):
+        result = client.predict(youtube_url, "transcribe", True, fn_index=7)
+        st.write("Requesting API...")
+        with open(f'{PATH}/docs.txt','w') as f:
+            f.write(result[1])
+        st.write('Writing File...')
+    with st.status("Requesting Embeddings"):
+        documents = SimpleDirectoryReader(PATH).load_data()
+        index = VectorStoreIndex.from_documents(documents)
+        return index.as_query_engine()
 
 # Streamlit UI
 st.title("YouTube Video Chatbot")
@@ -47,32 +52,26 @@ if youtube_url and "query_engine" not in st.session_state:
     st.write("Transcribing video... Please wait.")
     st.session_state.query_engine = transcribe_video(youtube_url)
 
-# Chatbot UI
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history
+# Display chat messages from history on app rerun
 for message in st.session_state.messages:
-    if message["role"] == "human":
-        st.write(f"You: {message['content']}")
-    else:
-        st.write(f"Chatbot: {message['content']}")
+    with st.chat_message(message["role"], avatar=("🧑‍💻" if message["role"] == 'human' else '🦙')):
+        st.markdown(message["content"])
 
 # User input
-prompt = st.text_input("Ask something about the video:")
+prompt = st.chat_input("Ask something about the video:")
 
-# React to user input
-if prompt and "query_engine" in st.session_state:
+if prompt := textinput and "query_engine" in st.session_state:
+    # Display user message in chat message container
+    st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
     # Add user message to chat history
     st.session_state.messages.append({"role": "human", "content": prompt})
 
-    # Get response from the chatbot
     response = st.session_state.query_engine.query(prompt)
-    response_text = response.response  # Assuming the response has a 'response' attribute with the answer
-
+    response_text = response.response
+    with st.chat_message("assistant", avatar='🦙'):
+        st.markdown(response_text)
     # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
-
-# Refresh the page to show the updated chat history
-if prompt:
-    st.experimental_rerun()
+    st.session_state.messages.append({"role": "assistant", "content": response})
