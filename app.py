@@ -61,7 +61,7 @@ youtube_url = st.text_input("Enter YouTube Video URL:")
 
 if youtube_url and "query_engine" not in st.session_state:
     st.write("Transcribing video... Please wait.")
-    st.session_state.query_engine = transcribe_video(youtube_url)
+    query_engine = transcribe_video(youtube_url)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -80,7 +80,7 @@ if prompt := prompt and "query_engine" in st.session_state:
     # Add user message to chat history
     st.session_state.messages.append({"role": "human", "content": prompt})
 
-    response = st.session_state.query(prompt)
+    response = query_engine.query(prompt)
     response_text = response.response
     with st.chat_message("assistant", avatar='🦙'):
         st.markdown(response_text)
