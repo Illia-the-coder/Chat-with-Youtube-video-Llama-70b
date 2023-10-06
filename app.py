@@ -6,7 +6,10 @@ from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from llama_index import set_global_service_context, ServiceContext, VectorStoreIndex, SimpleDirectoryReader
 import os
 
-PATH='/Data'
+PATH = os.path.join(os.path.expanduser("~"), "Data")
+
+if not os.path.exists(PATH):
+    os.makedirs(PATH)
 
 # Ensure the environment variable is set
 if "REPLICATE_API_TOKEN" not in os.environ:
@@ -37,9 +40,13 @@ def transcribe_video(youtube_url):
     with st.status("Requesting Whisper"):
         result = client.predict(youtube_url, "transcribe", True, fn_index=7)
         st.write("Requesting API...")
-        with open(f'{PATH}/docs.txt','w') as f:
-            f.write(result[1])
-        st.write('Writing File...')
+        try:
+            with open(f'{PATH}/docs.txt','w') as f:
+                f.write(result[1])
+            st.write('Writing File...')
+        except Exception as e:
+            st.error(f"Error writing to file: {e}")
+            st.write('ERROR with Writing File...')
     with st.status("Requesting Embeddings"):
         documents = SimpleDirectoryReader(PATH).load_data()
         index = VectorStoreIndex.from_documents(documents)
