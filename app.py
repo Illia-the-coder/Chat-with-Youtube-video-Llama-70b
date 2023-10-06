@@ -47,6 +47,7 @@ def transcribe_video(youtube_url):
         except Exception as e:
             st.error(f"Error writing to file: {e}")
             st.write('ERROR with Writing File...')
+    st.components.v1.html(result[1])
     with st.status("Requesting Embeddings"):
         documents = SimpleDirectoryReader(PATH).load_data()
         index = VectorStoreIndex.from_documents(documents)
