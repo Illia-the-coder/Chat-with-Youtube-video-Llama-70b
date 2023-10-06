@@ -58,8 +58,9 @@ st.title("YouTube Video Chatbot")
 
 # Input for YouTube URL
 youtube_url = st.text_input("Enter YouTube Video URL:")
+query_engine = None
 
-if youtube_url and "query_engine" not in st.session_state:
+if youtube_url and query_engine == None:
     st.write("Transcribing video... Please wait.")
     query_engine = transcribe_video(youtube_url)
 
@@ -74,7 +75,7 @@ for message in st.session_state.messages:
 # User input
 prompt = st.chat_input("Ask something about the video:")
 
-if prompt := prompt and "query_engine" in st.session_state:
+if prompt := prompt and  query_engine != None:
     # Display user message in chat message container
     st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
     # Add user message to chat history
