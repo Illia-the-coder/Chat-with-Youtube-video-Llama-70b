@@ -33,26 +33,29 @@ service_context = ServiceContext.from_defaults(
 set_global_service_context(service_context)
 
 # Transcribe function
+# Transcribe function
 def transcribe_video(youtube_url):
-    with st.status("Starting client"):
-        client = Client("https://sanchit-gandhi-whisper-jax.hf.space/")
-        st.write("Requesting client")
-    with st.status("Requesting Whisper"):
+    logging.info(f"Transcribing video: {youtube_url}")
+    client = Client("https://sanchit-gandhi-whisper-jax.hf.space/")
+    try:
         result = client.predict(youtube_url, "transcribe", True, fn_index=7)
-        st.write("Requesting API...")
-        try:
-            with open(f'{PATH}/docs.txt','w') as f:
-                f.write(result[1])
-            st.write('Writing File...')
-        except Exception as e:
-            st.error(f"Error writing to file: {e}")
-            st.write('ERROR with Writing File...')
-    # st.components.v1.html(result[0])
-    with st.status("Requesting Embeddings"):
-        documents = SimpleDirectoryReader(PATH).load_data()
-        index = VectorStoreIndex.from_documents(documents)
-        return index.as_query_engine()
+        with open(f'{PATH}/docs.txt', 'w') as f:
+            f.write(result[1])
+    except Exception as e:
+        logging.error(f"Error transcribing video: {e}")
+        raise ValueError(f"Error transcribing video: {e}")
+    documents = SimpleDirectoryReader(PATH).load_data()
+    index = VectorStoreIndex.from_documents(documents)
+    return index.as_query_engine()
 
+# Gradio UI
+def youtube_chatbot(youtube_url):
+    logging.info(f"Chatbot invoked with YouTube URL: {youtube_url}")
+    query_engine = transcribe_video(youtube_url)
+    Q = query_engine.query('Give full advanced article describing video transcription you have?').response
+    logging.info(f"Query result: {Q}")
+    return Q
+    
 # Streamlit UI
 st.title("YouTube Video Chatbot")
 
@@ -63,8 +66,8 @@ if youtube_url:
     st.write("Transcribing video... Please wait.")
     query_engine = transcribe_video(youtube_url)
     with st.status("Requesting Vicuna 13 b"):
-        Q = query_engine.query('Give full advanced article describing video transcribtion you have?').response
-        st.markdown(Q)
+        Q = youtube_chatbot
+    st.markdown(Q)
 
 # if "messages" not in st.session_state:
 #     st.session_state.messages = []
