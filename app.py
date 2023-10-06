@@ -57,33 +57,33 @@ def transcribe_video(youtube_url):
 st.title("YouTube Video Chatbot")
 
 # Input for YouTube URL
-youtube_url = st.text_input("Enter YouTube Video URL:")
-query_engine = None
+youtube_url = st.sidebar.text_input("Enter YouTube Video URL:")
 
-if youtube_url and query_engine == None:
+if youtube_url:
     st.write("Transcribing video... Please wait.")
     query_engine = transcribe_video(youtube_url)
+    st.markdown(query_engine.query('Give full advanced article describing video transcribtion you have?').response)
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# if "messages" not in st.session_state:
+#     st.session_state.messages = []
 
-# Display chat messages from history on app rerun
-for message in st.session_state.messages:
-    with st.chat_message(message["role"], avatar=("🧑‍💻" if message["role"] == 'human' else '🦙')):
-        st.markdown(message["content"])
+# # Display chat messages from history on app rerun
+# for message in st.session_state.messages:
+#     with st.chat_message(message["role"], avatar=("🧑‍💻" if message["role"] == 'human' else '🦙')):
+#         st.markdown(message["content"])
 
-# User input
-prompt = st.chat_input("Ask something about the video:")
+# # User input
+# prompt = st.chat_input("Ask something about the video:")
 
-if prompt := prompt and  query_engine != None:
-    # Display user message in chat message container
-    st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "human", "content": prompt})
+# if prompt := prompt and  query_engine != None:
+#     # Display user message in chat message container
+#     st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
+#     # Add user message to chat history
+#     st.session_state.messages.append({"role": "human", "content": prompt})
 
-    response = query_engine.query(prompt)
-    response_text = response.response
-    with st.chat_message("assistant", avatar='🦙'):
-        st.markdown(response_text)
-    # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response})
+#     response = query_engine.query(prompt)
+#     response_text = response.response
+#     with st.chat_message("assistant", avatar='🦙'):
+#         st.markdown(response_text)
+#     # Add assistant response to chat history
+#     st.session_state.messages.append({"role": "assistant", "content": response})
