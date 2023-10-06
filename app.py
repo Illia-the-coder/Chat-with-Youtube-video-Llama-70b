@@ -62,7 +62,9 @@ youtube_url = st.sidebar.text_input("Enter YouTube Video URL:")
 if youtube_url:
     st.write("Transcribing video... Please wait.")
     query_engine = transcribe_video(youtube_url)
-    st.markdown(query_engine.query('Give full advanced article describing video transcribtion you have?').response)
+    with st.status("Requesting Vicuna 13 b"):
+        Q = query_engine.query('Give full advanced article describing video transcribtion you have?').response
+        st.markdown(Q)
 
 # if "messages" not in st.session_state:
 #     st.session_state.messages = []
