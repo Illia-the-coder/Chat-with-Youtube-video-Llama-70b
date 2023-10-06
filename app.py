@@ -79,7 +79,7 @@ if prompt := prompt and "query_engine" in st.session_state:
     # Add user message to chat history
     st.session_state.messages.append({"role": "human", "content": prompt})
 
-    response = st.session_state.query_engine.query(prompt)
+    response = st.session_state.query(prompt)
     response_text = response.response
     with st.chat_message("assistant", avatar='🦙'):
         st.markdown(response_text)
