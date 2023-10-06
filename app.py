@@ -5,6 +5,7 @@ from llama_index.embeddings import LangchainEmbedding
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from llama_index import set_global_service_context, ServiceContext, VectorStoreIndex, SimpleDirectoryReader
 import os
+import logging
 
 PATH = os.path.join(os.path.expanduser("~"), "Data")
 
