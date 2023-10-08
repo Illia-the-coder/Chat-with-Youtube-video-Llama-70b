@@ -94,7 +94,7 @@ sidebar()
 initialize_session_state()
 
 st.session_state.doneYoutubeurl = ''
-if st.session_state.youtube_url and st.session_state.doneYoutubeurl == st.session_state.youtube_url:
+if st.session_state.youtube_url and st.session_state.doneYoutubeurl != st.session_state.youtube_url:
     with st.status("Transcribing video..."):
       data = transcribe_video(st.session_state.youtube_url, PATH)
     
