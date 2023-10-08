@@ -123,7 +123,8 @@ if st.session_state.youtube_url:
       st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
       st.session_state.messages.append({"role": "human", "content": prompt})
 
-      response = qa.run(message=prompt)
+      with st.status("Requesting Client..."):
+          response = qa.run(prompt)
       with st.chat_message("assistant", avatar='🦙'):
           st.markdown(response)
       # Add assistant response to chat history
