@@ -93,9 +93,8 @@ st.title("YouTube Video Chatbot")
 sidebar()
 initialize_session_state()
 
-st.session_state.qa=None
-
-if st.session_state.youtube_url and st.session_state.qa==None:
+st.session_state.doneYoutubeurl = ''
+if st.session_state.youtube_url and st.session_state.doneYoutubeurl == st.session_state.youtube_url:
     with st.status("Transcribing video..."):
       data = transcribe_video(st.session_state.youtube_url, PATH)
     
@@ -111,6 +110,7 @@ if st.session_state.youtube_url and st.session_state.qa==None:
     with st.status("Running RetrievalQA..."):
       llama_instance = LlamaLLM()
       st.session_state.qa = RetrievalQA.from_chain_type(llm=llama_instance, chain_type="stuff", retriever=retriever)
+    st.session_state.doneYoutubeurl = st.session_state.youtube_url
 
 if "messages" not in st.session_state:
   st.session_state.messages = []
