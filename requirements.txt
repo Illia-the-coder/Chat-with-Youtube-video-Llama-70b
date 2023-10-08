@@ -1,5 +1,4 @@
 gradio-client
-llama-index
-llama_hub
+langchain 
 sentence-transformers
-replicate
+faiss-cpu
