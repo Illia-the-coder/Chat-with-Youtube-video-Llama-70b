@@ -1,47 +1,89 @@
 import os
 import logging
-import streamlit as st
+from typing import Any, List, Mapping, Optional
+
 from gradio_client import Client
-from llama_index.llms import Replicate
-from llama_index.embeddings import LangchainEmbedding
+from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import FAISS
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
-from llama_index import set_global_service_context, ServiceContext, VectorStoreIndex, SimpleDirectoryReader
+from langchain.callbacks.manager import CallbackManagerForLLMRun
+from langchain.llms.base import LLM
+from langchain.chains import RetrievalQA
+import streamlit as st
+
+models = '''| Model | Llama2 | Llama2-hf | Llama2-chat | Llama2-chat-hf |
+|---|---|---|---|---|
+| 70B | [Link](https://huggingface.co/meta-llama/Llama-2-70b) | [Link](https://huggingface.co/meta-llama/Llama-2-70b-hf) | [Link](https://huggingface.co/meta-llama/Llama-2-70b-chat) | [Link](https://huggingface.co/meta-llama/Llama-2-70b-chat-hf) |
+---'''
+
+TITLE = "Chat-with-Youtube-video-Llama-70b"
+DESCRIPTION = """
+This Space demonstrates model [Llama-2-70b-chat-hf](https://huggingface.co/meta-llama/Llama-2-70b-chat-hf) by Meta, that can be used to chat with a YouTube video. 
+It uses the checkpoint [openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2) and 🤗 Transformers to transcribe audio files.
+For embeddings, we use [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2): It maps sentences & paragraphs to a 384 dimensional dense vector space and can be used for tasks like clustering or semantic search.
+"""
+
+def transcribe_video(youtube_url: str, path: str) -> List[Document]:
+    """
+    Transcribe a video and return its content as a Document.
+    """
+    logging.info(f"Transcribing video: {youtube_url}")
+    client = Client("https://sanchit-gandhi-whisper-jax.hf.space/")
+    result = client.predict(youtube_url, "translate", True, fn_index=7)
+    return [Document(page_content=result[1], metadata=dict(page=1))]
+
+
+def predict(message: str, system_prompt: str = '', temperature: float = 0.7, max_new_tokens: int = 4096,
+            topp: float = 0.5, repetition_penalty: float = 1.2) -> Any:
+    """
+    Predict a response using a client.
+    """
+    client = Client("https://ysharma-explore-llamav2-with-tgi.hf.space/")
+    response = client.predict(
+        message,
+        system_prompt,
+        temperature,
+        max_new_tokens,
+        topp,
+        repetition_penalty,
+        api_name="/chat_1"
+    )
+    return response
+
+
+class LlamaLLM(LLM):
+    """
+    Custom LLM class.
+    """
+
+    @property
+    def _llm_type(self) -> str:
+        return "custom"
+
+    def _call(self, prompt: str, stop: Optional[List[str]] = None,
+              run_manager: Optional[CallbackManagerForLLMRun] = None) -> str:
+        response = predict(prompt)
+        return response
+
+    @property
+    def _identifying_params(self) -> Mapping[str, Any]:
+        """Get the identifying parameters."""
+        return {}
 
 PATH = os.path.join(os.path.expanduser("~"), "Data")
 
 def initialize_session_state():
     if "youtube_url" not in st.session_state:
         st.session_state.youtube_url = ""
-    if "REPLICATE_API_TOKEN" not in st.session_state:
-        st.session_state.REPLICATE_API_TOKEN = ""
-
-def transcribe_video(youtube_url):
-    logging.info(f"Transcribing video: {youtube_url}")
-    client = Client("https://sanchit-gandhi-whisper-jax.hf.space/")
-    try:
-        result = client.predict(youtube_url, "transcribe", True, fn_index=7)
-        with open(f'{PATH}/docs.txt', 'w') as f:
-            f.write(result[1])
-    except Exception as e:
-        logging.error(f"Error transcribing video: {e}")
-        raise ValueError(f"Error transcribing video: {e}")
-    documents = SimpleDirectoryReader(PATH).load_data()
-    index = VectorStoreIndex.from_documents(documents)
-    return index.as_query_engine()
 
 def sidebar():
     with st.sidebar:
         st.markdown(
             "## How to use\n"
             "1. Enter the YouTube Video URL below🔗\n"
-            "2. Input your REPLICATE_API_TOKEN🔑\n"
         )
         st.session_state.youtube_url = st.text_input("YouTube Video URL:")
-        st.session_state.REPLICATE_API_TOKEN = st.text_input(
-            "REPLICATE_API_TOKEN",
-            type="password",
-            placeholder="Paste your REPLICATE_API_TOKEN here"
-        )
 
 st.set_page_config(page_title="YouTube Video Chatbot",
                    layout="centered",
@@ -52,26 +94,37 @@ sidebar()
 initialize_session_state()
 
 if st.session_state.youtube_url:
-    if not st.session_state.REPLICATE_API_TOKEN:
-        st.error("Please enter your REPLICATE_API_TOKEN in the sidebar to continue.")
-    else:
-        os.environ["REPLICATE_API_TOKEN"] = st.session_state.REPLICATE_API_TOKEN
-        llm = Replicate(
-            model="replicate/vicuna-13b:6282abe6a492de4145d7bb601023762212f9ddbbe78278bd6771c8b3b2f2a13b"
-        )
+    with st.status("Transcribing video..."):
+      data = transcribe_video(st.session_state.youtube_url, PATH)
+    
+    with st.status("Running Embeddings..."):
+      text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+      docs = text_splitter.split_documents(data)
 
-        embeddings = LangchainEmbedding(
-            HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        )
+      embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-l6-v2")
+      docsearch = FAISS.from_documents(docs, embeddings)
+      retriever = docsearch.as_retriever()
+      retriever.search_kwargs['distance_metric'] = 'cos'
+      retriever.search_kwargs['k'] = 4
+    with st.status("Running RetrievalQA..."):
+      llama_instance = LlamaLLM()
+      qa = RetrievalQA.from_chain_type(llm=llama_instance, chain_type="stuff", retriever=retriever)
 
-        service_context = ServiceContext.from_defaults(
-            chunk_size=1024,
-            llm=llm,
-            embed_model=embeddings
-        )
-        set_global_service_context(service_context)
+    if "messages" not in st.session_state:
+      st.session_state.messages = []
 
-        with st.spinner("Transcribing video... Please wait."):
-            query_engine = transcribe_video(st.session_state.youtube_url)
-            Q = query_engine.query('Give full advanced article describing video transcription you have?').response
-            st.markdown(Q)
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"], avatar=("🧑‍💻" if message["role"] == 'human' else '🦙')):
+            st.markdown(message["content"])
+
+    textinput = st.chat_input("Ask LLama-2-70b anything about the video...")   
+
+    if prompt := textinput:
+      st.chat_message("human",avatar = "🧑‍💻").markdown(prompt)
+      st.session_state.messages.append({"role": "human", "content": prompt})
+
+      response = qa.run(message=prompt)
+      with st.chat_message("assistant", avatar='🦙'):
+          st.markdown(response)
+      # Add assistant response to chat history
+      st.session_state.messages.append({"role": "assistant", "content": response})
