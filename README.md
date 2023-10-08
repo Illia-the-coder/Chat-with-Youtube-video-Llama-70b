@@ -1,6 +1,6 @@
 ---
 title: Chat With Youtube Video
-emoji: 🐢
+emoji: 🔥
 colorFrom: blue
 colorTo: indigo
 sdk: streamlit
