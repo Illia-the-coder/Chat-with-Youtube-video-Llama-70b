@@ -13,6 +13,9 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 import streamlit as st
 from pytube import YouTube
+import replicate
+
+
 
 
 
@@ -49,27 +52,6 @@ def transcribe_video(youtube_url: str, path: str) -> List[Document]:
 
 
 
-
-
-class LlamaLLM(LLM):
-    """
-    Custom LLM class.
-    """
-
-    @property
-    def _llm_type(self) -> str:
-        return "custom"
-
-    def _call(self, prompt: str, stop: Optional[List[str]] = None,
-              run_manager: Optional[CallbackManagerForLLMRun] = None) -> str:
-        response = predict(prompt)
-        return response
-
-    @property
-    def _identifying_params(self) -> Mapping[str, Any]:
-        """Get the identifying parameters."""
-        return {}
-
 PATH = os.path.join(os.path.expanduser("~"), "Data")
 
 def initialize_session_state():
@@ -84,6 +66,10 @@ def sidebar():
     with st.sidebar:
         st.markdown("Enter the YouTube Video URL below🔗\n")
         st.session_state.youtube_url = st.text_input("YouTube Video URL:")
+        
+        REPLICATE_API_TOKEN = st.text_input("REPLICATE API TOKEN:", type="password")  # Using type="password" to mask the input
+        if REPLICATE_API_TOKEN:
+            os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
         if st.session_state.youtube_url:
             # Get the video title
@@ -103,21 +89,6 @@ def sidebar():
         # RepetitionpenaltySide = st.slider("Repetition penalty", min_value=0.0, max_value=2.0, value=1.2, step=0.05)
 
 
-def predict(message: str) -> Any:
-    """
-    Predict a response using a client.
-    """
-    client = Client("https://ysharma-explore-llamav2-with-tgi.hf.space/")
-    response = client.predict(
-        message,
-        '',
-        0.9,
-        4096,
-        0.6,
-        1.2,
-        api_name="/chat_1"
-    )
-    return response
 
 sidebar()
 initialize_session_state()
@@ -137,7 +108,7 @@ prompt = PromptTemplate(
 if st.session_state.youtube_url != st.session_state.doneYoutubeurl:
     st.session_state.setup_done = False
 
-if st.session_state.youtube_url and not st.session_state.setup_done:
+if st.session_state.youtube_url and not st.session_state.setup_done and "REPLICATE_API_TOKEN" in os.environ:
     with st.status("Transcribing video..."):
       data = transcribe_video(st.session_state.youtube_url, PATH)
     
@@ -149,7 +120,10 @@ if st.session_state.youtube_url and not st.session_state.setup_done:
       retriever.search_kwargs['distance_metric'] = 'cos'
       retriever.search_kwargs['k'] = 4
     with st.status("Running RetrievalQA..."):
-      llama_instance = LlamaLLM()
+      llama_instance = replicate.load(
+            model="meta/llama-2-70b-chat:02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3",
+            model_kwargs={"temperature": 0.75, "max_length": 4096, "top_p": 1},
+        )
       st.session_state.qa = RetrievalQA.from_chain_type(llm=llama_instance, chain_type="stuff", retriever=retriever,chain_type_kwargs={"prompt": prompt})
         
     st.session_state.doneYoutubeurl = st.session_state.youtube_url
