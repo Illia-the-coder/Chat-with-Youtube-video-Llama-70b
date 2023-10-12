@@ -14,6 +14,7 @@ from langchain.prompts import PromptTemplate
 import streamlit as st
 from pytube import YouTube
 import replicate
+from langchain.llms import Replicate
 
 
 
