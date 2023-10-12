@@ -120,7 +120,7 @@ if st.session_state.youtube_url and not st.session_state.setup_done and "REPLICA
       retriever.search_kwargs['distance_metric'] = 'cos'
       retriever.search_kwargs['k'] = 4
     with st.status("Running RetrievalQA..."):
-      llama_instance = replicate.load(
+      llama_instance = Replicate(
             model="meta/llama-2-70b-chat:02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3",
             model_kwargs={"temperature": 0.75, "max_length": 4096, "top_p": 1},
         )
