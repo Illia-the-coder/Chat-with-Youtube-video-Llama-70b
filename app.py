@@ -10,19 +10,33 @@ from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
 import streamlit as st
+from pytube import YouTube
+
+
 
 models = '''| Model | Llama2 | Llama2-hf | Llama2-chat | Llama2-chat-hf |
 |---|---|---|---|---|
 | 70B | [Link](https://huggingface.co/meta-llama/Llama-2-70b) | [Link](https://huggingface.co/meta-llama/Llama-2-70b-hf) | [Link](https://huggingface.co/meta-llama/Llama-2-70b-chat) | [Link](https://huggingface.co/meta-llama/Llama-2-70b-chat-hf) |
 ---'''
 
-TITLE = "Chat-with-Youtube-video-Llama-70b"
+
 DESCRIPTION = """
-This Space demonstrates model [Llama-2-70b-chat-hf](https://huggingface.co/meta-llama/Llama-2-70b-chat-hf) by Meta, that can be used to chat with a YouTube video. 
-It uses the checkpoint [openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2) and 🤗 Transformers to transcribe audio files.
-For embeddings, we use [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2): It maps sentences & paragraphs to a 384 dimensional dense vector space and can be used for tasks like clustering or semantic search.
+Welcome to the **YouTube Video Chatbot** powered by the state-of-the-art Llama-2-70b model. Here's what you can do:
+- **Transcribe & Understand**: Provide any YouTube video URL, and our system will transcribe it. Our advanced NLP model will then understand the content, ready to answer your questions.
+- **Ask Anything**: Based on the video's content, ask any question, and get instant, context-aware answers.
+To get started, simply paste a YouTube video URL in the sidebar and start chatting with the model about the video's content. Enjoy the experience!
 """
+st.title("YouTube Video Chatbot")
+st.markdown(DESCRIPTION)
+
+def get_video_title(youtube_url: str) -> str:
+    yt = YouTube(youtube_url)
+    embed_url = f"https://www.youtube.com/embed/{yt.video_id}"
+    embed_html = f'<iframe  src="{embed_url}" frameborder="0" allowfullscreen></iframe>'
+    return yt.title, embed_html
+
 
 def transcribe_video(youtube_url: str, path: str) -> List[Document]:
     """
@@ -34,22 +48,7 @@ def transcribe_video(youtube_url: str, path: str) -> List[Document]:
     return [Document(page_content=result[1], metadata=dict(page=1))]
 
 
-def predict(message: str, system_prompt: str = '', temperature: float = 0.7, max_new_tokens: int = 4096,
-            topp: float = 0.5, repetition_penalty: float = 1.2) -> Any:
-    """
-    Predict a response using a client.
-    """
-    client = Client("https://ysharma-explore-llamav2-with-tgi.hf.space/")
-    response = client.predict(
-        message,
-        system_prompt,
-        temperature,
-        max_new_tokens,
-        topp,
-        repetition_penalty,
-        api_name="/chat_1"
-    )
-    return response
+
 
 
 class LlamaLLM(LLM):
@@ -83,19 +82,56 @@ def initialize_session_state():
 
 def sidebar():
     with st.sidebar:
-        st.markdown(
-            "## How to use\n"
-            "1. Enter the YouTube Video URL below🔗\n"
-        )
+        st.markdown("Enter the YouTube Video URL below🔗\n")
         st.session_state.youtube_url = st.text_input("YouTube Video URL:")
 
-st.set_page_config(page_title="YouTube Video Chatbot",
-                   layout="centered",
-                   initial_sidebar_state="expanded")
+        if st.session_state.youtube_url:
+            # Get the video title
+            video_title, embed_html = get_video_title(st.session_state.youtube_url)
+            st.markdown(f"### {video_title}")
 
-st.title("YouTube Video Chatbot")
+            # Embed the video
+            st.markdown(
+                embed_html,
+                unsafe_allow_html=True
+            )
+            
+        # system_promptSide = st.text_input("Optional system prompt:")
+        # temperatureSide = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.9, step=0.05)
+        # max_new_tokensSide = st.slider("Max new tokens", min_value=0.0, max_value=4096.0, value=4096.0, step=64.0)
+        # ToppSide = st.slider("Top-p (nucleus sampling)", min_value=0.0, max_value=1.0, value=0.6, step=0.05)
+        # RepetitionpenaltySide = st.slider("Repetition penalty", min_value=0.0, max_value=2.0, value=1.2, step=0.05)
+
+
+def predict(message: str) -> Any:
+    """
+    Predict a response using a client.
+    """
+    client = Client("https://ysharma-explore-llamav2-with-tgi.hf.space/")
+    response = client.predict(
+        message,
+        '',
+        0.9,
+        4096,
+        0.6,
+        1.2,
+        api_name="/chat_1"
+    )
+    return response
+
 sidebar()
 initialize_session_state()
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-l6-v2")
+
+prompt = PromptTemplate(
+    template="""Given the context about a video. Answer the user in a friendly and precise manner.
+    Context: {context}
+    Human: {question}
+    AI:""",
+    input_variables=["context", "question"]
+)
 
 # Check if a new YouTube URL is provided
 if st.session_state.youtube_url != st.session_state.doneYoutubeurl:
@@ -106,19 +142,16 @@ if st.session_state.youtube_url and not st.session_state.setup_done:
       data = transcribe_video(st.session_state.youtube_url, PATH)
     
     with st.status("Running Embeddings..."):
-      text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
       docs = text_splitter.split_documents(data)
 
-      embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-l6-v2")
       docsearch = FAISS.from_documents(docs, embeddings)
       retriever = docsearch.as_retriever()
       retriever.search_kwargs['distance_metric'] = 'cos'
       retriever.search_kwargs['k'] = 4
     with st.status("Running RetrievalQA..."):
       llama_instance = LlamaLLM()
-      st.session_state.qa = RetrievalQA.from_chain_type(llm=llama_instance, chain_type="stuff", retriever=retriever)
-    st.session_state.doneYoutubeurl = st.session_state.youtube_url
-
+      st.session_state.qa = RetrievalQA.from_chain_type(llm=llama_instance, chain_type="stuff", retriever=retriever,chain_type_kwargs={"prompt": prompt})
+        
     st.session_state.doneYoutubeurl = st.session_state.youtube_url
     st.session_state.setup_done = True  # Mark the setup as done for this URL
 
