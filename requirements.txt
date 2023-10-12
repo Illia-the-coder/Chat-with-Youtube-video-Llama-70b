@@ -2,3 +2,4 @@ gradio-client
 langchain 
 sentence-transformers
 faiss-cpu
+pytube
